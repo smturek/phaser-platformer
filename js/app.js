@@ -1,6 +1,8 @@
 var Platformer = Platformer || {};
 
-Platformer.game = new Phaser.Game(480, 360, Phaser.CANVAS);
+Platformer.dim = Platformer.getGameLandscapeDimensions(700, 350);
+
+Platformer.game = new Phaser.Game(Platformer.dim.w, Platformer.dim.h, Phaser.CANVAS);
 
 Platformer.game.state.add('Boot', Platformer.BootState);
 Platformer.game.state.add('Preload', Platformer.PreloadState);
