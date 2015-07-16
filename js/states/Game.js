@@ -1,9 +1,13 @@
 var Platformer = Platformer || {};
 
 Platformer.GameState = {
-    init: function() {
+    init: function(level) {
+
+        this.currentLevel = level || 'level1';
+
         this.RUNNING_SPEED = 180;
         this.JUMPING_SPEED = 500;
+        this.BOUNCING_SPEED = 150;
 
         this.game.physics.arcade.gravity.y = 1000;
 
@@ -15,6 +19,9 @@ Platformer.GameState = {
     },
     update: function() {
         this.game.physics.arcade.collide(this.player, this.collisionLayer);
+        this.game.physics.arcade.collide(this.enemies, this.collisionLayer);
+        this.game.physics.arcade.overlap(this.player, this.goal, this.changeLevel, null, this);
+        this.game.physics.arcade.collide(this.player, this.enemies, this.hitEnemy, null, this);
 
         this.player.body.velocity.x = 0;
 
@@ -38,10 +45,14 @@ Platformer.GameState = {
             this.player.body.velocity.y = -this.JUMPING_SPEED;
             this.player.customParams.mustJump = false;
         }
+
+        if(this.player.bottom == this.game.world.height) {
+            this.gameOver();
+        }
     },
     loadLevel: function() {
 
-        this.map = this.add.tilemap('level1');
+        this.map = this.add.tilemap(this.currentLevel);
 
         //join the tile images to the JSON data
         this.map.addTilesetImage('tiles_spritesheet', 'gameTiles');
@@ -58,6 +69,13 @@ Platformer.GameState = {
 
         this.collisionLayer.resizeWorld();
 
+        //create goal
+        var goalArr = this.findObjectsByType('goal', this.map, 'objectsLayer');
+        this.goal = this.add.sprite(goalArr[0].x, goalArr[0].y, goalArr[0].properties.key);
+        this.game.physics.arcade.enable(this.goal);
+        this.goal.body.allowGravity = false;
+        this.goal.nextLevel = goalArr[0].properties.nextLevel;
+
         var playerArr = this.findObjectsByType('player', this.map, 'objectsLayer');
         this.player = this.add.sprite(playerArr[0].x, playerArr[0].y, 'player', 3);
         this.player.anchor.setTo(0.5);
@@ -67,6 +85,11 @@ Platformer.GameState = {
         this.player.body.collideWorldBounds = true;
 
         this.game.camera.follow(this.player);
+
+        //create enemies
+        this.enemies = this.add.group();
+        this.createEnemies();
+
     },
     createOnscreenControls: function() {
         this.leftArrow = this.add.button(20, this.game.height - 60, 'arrowButton');
@@ -119,11 +142,34 @@ Platformer.GameState = {
 
         tilemap.objects[layer].forEach(function(element) {
             if(element.properties.type == targetType) {
-                element.y -= tilemap.tileHight;
+                element.y -= tilemap.tileHeight;
                 results.push(element);
             }
         }, this);
 
         return results;
+    },
+    changeLevel: function() {
+        this.game.state.start('Game', true, false, this.goal.nextLevel);
+    },
+    createEnemies: function() {
+        var enemyArr = this.findObjectsByType('enemy', this.map, 'objectsLayer');
+        var enemy;
+        enemyArr.forEach(function(element) {
+            enemy = new Platformer.Enemy(this.game, element.x, element.y, 'slime', +element.properties.velocity, this.map);
+            this.enemies.add(enemy);
+        }, this)
+    },
+    hitEnemy: function(player, enemy) {
+        if(enemy.body.touching.up) {
+            enemy.kill();
+            player.body.velocity.y = -this.BOUNCING_SPEED;
+        }
+        else {
+            this.gameOver();
+        }
+    },
+    gameOver: function() {
+        this.game.state.start('Game', true, false, this.goal.currentLevel);
     }
 };
